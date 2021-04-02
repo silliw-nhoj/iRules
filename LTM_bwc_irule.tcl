@@ -36,6 +36,7 @@ when CLIENT_ACCEPTED {
   BWC::measure start session
 }
 when SERVER_CONNECTED {
+  call logger "LB-DECISION-MADE" "serverside-f5-ip=[IP::local_addr]:[TCP::local_port], pool-member=[LB::server addr]:[LB::server port]" $mysession $virtual $start_time($mysession)
   TCP::collect
   set bwcMCount 0
 }
