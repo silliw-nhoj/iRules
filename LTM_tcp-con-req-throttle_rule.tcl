@@ -39,8 +39,8 @@ when RULE_INIT {
 }
 
 when CLIENT_ACCEPTED {
-#   set mysession [IP::remote_addr]:[TCP::remote_port]
-  set mysession [IP::remote_addr]
+  set mysession [IP::remote_addr]:[TCP::remote_port]
+#   set mysession [IP::remote_addr]
   set virtual [virtual]([clientside {IP::local_addr}]:[ clientside {TCP::local_port}])
   set start_time($mysession) [clock clicks -milliseconds]
   set maxRpsCount 0
@@ -100,6 +100,12 @@ when CLIENT_DATA {
   TCP::release
   # Collect new data - CLIENT_DATA will be called again
   TCP::collect  
+}
+
+when SERVER_CONNECTED {
+  call logger "LB-DECISION-MADE" "serverside-f5-ip=[IP::local_addr]:[TCP::local_port], pool-member=[LB::server addr]:[LB::server port]" $mysession $virtual $start_time($mysession)
+  if { $static::log_requests } {
+  }
 }
 
 when CLIENT_CLOSED {
