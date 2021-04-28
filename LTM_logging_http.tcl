@@ -56,7 +56,7 @@ when SERVER_CONNECTED {
 # HTTP request received from client
 when HTTP_REQUEST {
   if { $static::syslog_hsl_rule_log_http_info } {
-    call logger "HTTP-REQUEST-RECEIVED" "request-URI=[HTTP::uri], user-agent=[HTTP::header user-agent]" $mysession $virtual $start_time($mysession)
+    call logger "HTTP-REQUEST-RECEIVED" "request-URI=[HTTP::uri], user-agent=[HTTP::header user-agent], host-header=[HTTP::host]" $mysession $virtual $start_time($mysession)
   }
 }
 
