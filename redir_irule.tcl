@@ -10,9 +10,6 @@ ltm data-group internal redirect-dg {
         app3.example.com {
             data example.com/app3
         }
-        zoom.sfusd.edu {
-            data sfusd.zoom.us/signin
-        }
     }
     type string
 }
