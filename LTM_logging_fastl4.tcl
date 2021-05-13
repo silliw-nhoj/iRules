@@ -61,14 +61,14 @@ when SERVER_CONNECTED {
   # }
 }
 
-# Data received from server-side pool member
-when SERVER_DATA {
-  if { $static::log_requests } {
-    call logger "SERVER-TCP-DATA-RECEIVED" "pool-member=[LB::server addr]:[LB::server port]" $mysession $virtual $start_time($mysession)
-    TCP::release
-    TCP::collect
-  }
-}
+# # Data received from server-side pool member
+# when SERVER_DATA {
+#   if { $static::log_requests } {
+#     call logger "SERVER-TCP-DATA-RECEIVED" "pool-member=[LB::server addr]:[LB::server port]" $mysession $virtual $start_time($mysession)
+#     TCP::release
+#     TCP::collect
+#   }
+# }
 
 # Client TCP connection closed
 when CLIENT_CLOSED {
