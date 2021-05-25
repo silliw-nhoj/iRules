@@ -31,7 +31,7 @@ when RULE_INIT {
   # static var for maximum queries per second
   set static::maxquery 10
   # static var for holdtime
-  set static::holdtime 5
+  set static::holdtime 1
   # static var to toggle throttling
   set static::throttle 1
 }
@@ -41,7 +41,6 @@ when CLIENT_ACCEPTED {
 #   set mysession [IP::remote_addr]
   set virtual [virtual]([clientside {IP::local_addr}]:[ clientside {UDP::local_port}])
   set start_time($mysession) [clock clicks -milliseconds]
-  set maxRpsCount 0
 }
 
 when DNS_REQUEST {
@@ -56,8 +55,6 @@ when DNS_REQUEST {
     event disable all
     reject
     call logger "CLIENT-CONNECTION-LIMIT-REACHED" "Exceeded $static::maxquery connections rejecting-connection" $mysession $virtual $start_time($mysession)
-  } else {
-    set timer [after 60000 -periodic { table lookup -subtable $tbl $connkey }]
-  }
+  } 
 }
 }
