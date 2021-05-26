@@ -45,16 +45,21 @@ when CLIENT_ACCEPTED {
 
 when DNS_REQUEST {
   set type [DNS::question type]
-  call logger "DNS-REQUEST" "TYPE=$type" $mysession $virtual $start_time($mysession)
+  call logger "DNS-REQUEST" "TYPE=$type CLI-PORT=[UDP::client_port]" $mysession $virtual $start_time($mysession)
   
-  set tbl "connlimit:[IP::client_addr]"
-  set connkey "[UDP::client_port]"
-  table set -subtable $tbl $connkey "ignored" 1
-  if { [table keys -subtable $tbl -count] > $static::maxquery } {
-    table delete -subtable $tbl $connkey
+  # set reqkey to the sourceIP and current time
+  set curtime [clock second]
+  set reqkey "count:$mysession:$curtime"
+  # Keep a count of the entries in the table for this IP in the current second (ie 12<!--:21:01 - 12:21:02)-->
+  set count [table incr $reqkey]
+  # Time significance is 1s, so expire any entries after 2s (fudge factor) to conserve memory
+  table lifetime $reqkey 2
+
+  if { ( $count > $static::maxquery ) && $static::throttle } {  
+    call logger "CLIENT-EXCEEDED-THRESHOLD" "$count requests per second" $mysession $virtual $start_time($mysession)
+    set count [table incr $reqkey -1]
     event disable all
     reject
-    call logger "CLIENT-CONNECTION-LIMIT-REACHED" "Exceeded $static::maxquery connections rejecting-connection" $mysession $virtual $start_time($mysession)
   } 
 }
 }
