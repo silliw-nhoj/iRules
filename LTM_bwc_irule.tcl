@@ -7,21 +7,23 @@ proc logger { evt msg mysession virtual startTime } {
   # default message to show client-IP:client-port and vs-name(vs-IP:vs-port)
   set defMsg "client=$mysession, virtual-server=$virtual"
   # if log_to_local is set log to local0
-  if { $static::log_to_local } { log local0. "$timestamp, $evt, $defMsg, $msg, $elapsed_time" }
+  if { $static::log_to_local_bwc_rule } { log local0. "$timestamp, $evt, $defMsg, $msg, $elapsed_time" }
   # set HSL handle and send 
   set handle [HSL::open -proto $static::syslog_hsl_rule_proto -pool $static::syslog_hsl_rule_syslog_pool]
   HSL::send $handle "$static::syslog_hsl_rule_pri, host=$static::syslog_hsl_rule_this_host, $timestamp, $evt, $defMsg, $msg, $elapsed_time\n"
 }
 
 when RULE_INIT {
-  set static::rate "30Mbps"
-  set static::bwcPolicy "jw-bwc"
-  set static::measureRate "200"
   set static::syslog_hsl_rule_syslog_pool "my_syslog_pool"
   set static::syslog_hsl_rule_proto "UDP"
   set static::syslog_hsl_rule_pri "<134>"
   set static::syslog_hsl_rule_this_host [info hostname]
-  set static::log_to_local 1
+
+  # IMPORTANT: The following static variables must use globally unique variable names across all iRules on this BIG-IP
+  set static::rate_bwc_rule "30Mbps"
+  set static::bwcPolicy_bwc_rule "jw-bwc"
+  set static::measureRate_bwc_rule "200"
+  set static::log_to_local_bwc_rule 1
 }
 
 when CLIENT_ACCEPTED {
@@ -30,8 +32,8 @@ when CLIENT_ACCEPTED {
   set virtual [virtual]([clientside {IP::local_addr}]:[ clientside {TCP::local_port}])
   set start_time($mysession) [clock clicks -milliseconds]
   
-  BWC::policy attach $static::bwcPolicy $mysession
-  BWC::rate $mysession $static::rate
+  BWC::policy attach $static::bwcPolicy_bwc_rule $mysession
+  BWC::rate $mysession $static::rate_bwc_rule
   BWC::measure identifier $mysession session
   BWC::measure start session
 }
@@ -41,7 +43,7 @@ when SERVER_CONNECTED {
   set bwcMCount 0
 }
 when SERVER_DATA {
-  if {$bwcMCount >= $static::measureRate } {
+  if {$bwcMCount >= $static::measureRate_bwc_rule } {
     call logger "MOVING-AVERAGE" "$rate bytes/sec : $bytes total" $mysession $virtual $start_time($mysession)
     set bwcMCount 0
   }

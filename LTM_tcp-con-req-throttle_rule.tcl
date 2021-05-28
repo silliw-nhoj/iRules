@@ -7,7 +7,7 @@ proc logger { evt msg mysession virtual startTime } {
   # default message to show client-IP:client-port and vs-name(vs-IP:vs-port)
   set defMsg "client=$mysession, virtual-server=$virtual"
   # if log_to_local is set log to local0
-  if { $static::log_to_local } { log local0. "$timestamp, $evt, $defMsg, $msg, $elapsed_time" }
+  if { $static::log_to_local_tcp_throttle_rule } { log local0. "$timestamp, $evt, $defMsg, $msg, $elapsed_time" }
   # set HSL handle and send 
   set handle [HSL::open -proto $static::syslog_hsl_rule_proto -pool $static::syslog_hsl_rule_syslog_pool]
   HSL::send $handle "$static::syslog_hsl_rule_pri, host=$static::syslog_hsl_rule_this_host, $timestamp, $evt, $defMsg, $msg, $elapsed_time\n"
@@ -22,20 +22,22 @@ when RULE_INIT {
   set static::syslog_hsl_rule_pri "<134>"
   # get hostname from local device
   set static::syslog_hsl_rule_this_host [info hostname]
+
+  # IMPORTANT: The following static variables must use globally unique variable names across all iRules on this BIG-IP
   # static var to toggle local logging
-  set static::log_to_local 1
+  set static::log_to_local_tcp_throttle_rule 1
   
   ## Connection limit variables
   # set max connections per client IP
-  set static::maxConnections 3
+  set static::maxConnections_tcp_throttle_rule 3
   
   ## RPS limit variables
   # static var for maximum queries per second
-  set static::maxquery 30
+  set static::maxquery_tcp_throttle_rule 1000
   # static var for holdtime
-  set static::holdtime 5
+  set static::holdtime_tcp_throttle_rule 5
   # static var to toggle throttling
-  set static::throttle 1
+  set static::throttle_tcp_throttle_rule 1
 }
 
 when CLIENT_ACCEPTED {
@@ -48,11 +50,11 @@ when CLIENT_ACCEPTED {
   set tbl "connlimit:[IP::client_addr]"
   set connkey "[TCP::client_port]"
   table set -subtable $tbl $connkey "ignored" 180
-  if { [table keys -subtable $tbl -count] > $static::maxConnections } {
+  if { [table keys -subtable $tbl -count] > $static::maxConnections_tcp_throttle_rule } {
     table delete -subtable $tbl $connkey
     event disable all
     reject
-    call logger "CLIENT-CONNECTION-LIMIT-REACHED" "Exceeded $static::maxConnections connections rejecting-connection" $mysession $virtual $start_time($mysession)
+    call logger "CLIENT-CONNECTION-LIMIT-REACHED" "Exceeded $static::maxConnections_tcp_throttle_rule connections rejecting-connection" $mysession $virtual $start_time($mysession)
   } else {
     set timer [after 60000 -periodic { table lookup -subtable $tbl $connkey }]
   }
@@ -73,22 +75,22 @@ when CLIENT_DATA {
   table lifetime $reqkey 2
 
   #  If there is a match, drop the request and exit the event
-  if { ([table lookup -subtable "holdlist" $mysession] != "") && $static::throttle } {
-    call logger "CLIENT-IS-ON-HOLDLIST" "Waiting for $static::holdtime seconds." $mysession $virtual $start_time($mysession)
-    after [expr {($static::holdtime) * 1000 }]
+  if { ([table lookup -subtable "holdlist" $mysession] != "") && $static::throttle_tcp_throttle_rule } {
+    call logger "CLIENT-IS-ON-HOLDLIST" "Waiting for $static::holdtime_tcp_throttle_rule seconds." $mysession $virtual $start_time($mysession)
+    after [expr {($static::holdtime_tcp_throttle_rule) * 1000 }]
     table delete -subtable "holdlist" $mysession
     call logger "CLIENT-SESSION-RESUMING" "Resuming session." $mysession $virtual $start_time($mysession)
   }
 
-  if { ( $count > $static::maxquery ) && $static::throttle } {  
+  if { ( $count > $static::maxquery_tcp_throttle_rule ) && $static::throttle_tcp_throttle_rule } {  
      # Add IP to the holdlist and set the lifetime to the holdtime variable 
      # so entry will automatically expire when desired.  The lifetime is used
      # instead of the timeout because the first thing the iRule does is lookup
      # the IP in the holdlist table, which would keep the timeout from expiring
      # the holdlist entry.
      call logger "CLIENT-EXCEEDED-THRESHOLD" "$count requests per second" $mysession $virtual $start_time($mysession)
-     table add -subtable "holdlist" $mysession "blocked" indef $static::holdtime
-     call logger "CLIENT-PLACED-ON-HOLDLIST" "Putting on holdlist for $static::holdtime seconds." $mysession $virtual $start_time($mysession)
+     table add -subtable "holdlist" $mysession "blocked" indef $static::holdtime_tcp_throttle_rule
+     call logger "CLIENT-PLACED-ON-HOLDLIST" "Putting on holdlist for $static::holdtime_tcp_throttle_rule seconds." $mysession $virtual $start_time($mysession)
      # Reset count to avoid subsequent warnings and entries for the same client connection.
      table delete $reqkey
   }
