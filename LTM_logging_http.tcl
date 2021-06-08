@@ -11,7 +11,7 @@ proc logger { evt msg mysession virtual startTime } {
   # default message to show client-IP:client-port and vs-name(vs-IP:vs-port)
   set defMsg "client=$mysession, virtual-server=$virtual"
   # if log_to_local is set log to local0
-  if { $static::log_to_local } { log local0. "$timestamp, $evt, $defMsg, $msg, $elapsed_time" }
+  if { $static::log_to_local_http } { log local0. "$timestamp, $evt, $defMsg, $msg, $elapsed_time" }
   # set HSL handle and send 
   set handle [HSL::open -proto $static::syslog_hsl_rule_proto -pool $static::syslog_hsl_rule_syslog_pool]
   HSL::send $handle "$static::syslog_hsl_rule_pri, host=$static::syslog_hsl_rule_this_host, $timestamp, $evt, $defMsg, $msg, $elapsed_time\n"
@@ -27,11 +27,11 @@ when RULE_INIT {
   # get hostname from local device
   set static::syslog_hsl_rule_this_host [info hostname]
   # static var to toggle logging of tcp info
-  set static::syslog_hsl_rule_log_tcp_info 1
+  set static::syslog_hsl_rule_log_tcp_info_http 1
   # static var to toggle logging of http info
-  set static::syslog_hsl_rule_log_http_info 1
+  set static::syslog_hsl_rule_log_http_info_http 1
   # static var to toggle local logging
-  set static::log_to_local 1
+  set static::log_to_local_http 1
 }
 
 # connection established
@@ -40,7 +40,7 @@ when CLIENT_ACCEPTED {
 # set mysession [IP::remote_addr]
   set virtual [virtual]([clientside {IP::local_addr}]:[ clientside {TCP::local_port}])
   set start_time($mysession) [clock clicks -milliseconds]
-  if { $static::syslog_hsl_rule_log_tcp_info } {
+  if { $static::syslog_hsl_rule_log_tcp_info_http } {
     call logger "CLIENT-TCP-CONN-ESTABLISHED" "--" $mysession $virtual $start_time($mysession)
   }
 }
@@ -48,28 +48,28 @@ when CLIENT_ACCEPTED {
 
 # LB decision made and pool member selected
 when SERVER_CONNECTED {
-  if { $static::syslog_hsl_rule_log_tcp_info } {
+  if { $static::syslog_hsl_rule_log_tcp_info_http } {
     call logger "LB-DECISION-MADE" "serverside-f5-ip=[IP::local_addr]:[TCP::local_port], pool-member=[LB::server addr]:[LB::server port]" $mysession $virtual $start_time($mysession)
   }
 }
 
 # HTTP request received from client
 when HTTP_REQUEST {
-  if { $static::syslog_hsl_rule_log_http_info } {
+  if { $static::syslog_hsl_rule_log_http_info_http } {
     call logger "HTTP-REQUEST-RECEIVED" "request-URI=[HTTP::uri], user-agent=[HTTP::header user-agent], host-header=[HTTP::host]" $mysession $virtual $start_time($mysession)
   }
 }
 
 # HTTP response received from server
 when HTTP_RESPONSE {
-  if { $static::syslog_hsl_rule_log_http_info } {
+  if { $static::syslog_hsl_rule_log_http_info_http } {
     call logger "HTTP-RESPONSE-RECEIVED" "status-code=[HTTP::status]" $mysession $virtual $start_time($mysession)
   }
 }
 
 # Client TCP connection closed
 when CLIENT_CLOSED {
-  if { $static::syslog_hsl_rule_log_tcp_info } {
+  if { $static::syslog_hsl_rule_log_tcp_info_http } {
     call logger "CLIENT-CONNECTION-CLOSED" "--" $mysession $virtual $start_time($mysession)
   }
 }

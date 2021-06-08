@@ -12,7 +12,7 @@ proc logger { evt msg mysession virtual startTime } {
   # default message to show client-IP:client-port and vs-name(vs-IP:vs-port)
   set defMsg "client=$mysession, virtual-server=$virtual"
   # if log_to_local is set log to local0
-  if { $static::log_to_local } { log local0. "$timestamp, $evt, $defMsg, $msg, $elapsed_time" }
+  if { $static::log_to_local_fastl4 } { log local0. "$timestamp, $evt, $defMsg, $msg, $elapsed_time" }
   # set HSL handle and send 
   set handle [HSL::open -proto $static::syslog_hsl_rule_proto -pool $static::syslog_hsl_rule_syslog_pool]
   HSL::send $handle "$static::syslog_hsl_rule_pri, host=$static::syslog_hsl_rule_this_host, $timestamp, $evt, $defMsg, $msg, $elapsed_time\n"
@@ -28,8 +28,7 @@ when RULE_INIT {
   # get hostname from local device
   set static::syslog_hsl_rule_this_host [info hostname]
   # static var to toggle local logging
-  set static::log_to_local 1
-  # set static::log_requests 1
+  set static::log_to_local_fastl4 1
 }
 
 # connection established
@@ -39,36 +38,15 @@ when CLIENT_ACCEPTED {
   set virtual [virtual]([clientside {IP::local_addr}]:[ clientside {TCP::local_port}])
   set start_time($mysession) [clock clicks -milliseconds]
   call logger "CLIENT-TCP-CONN-ESTABLISHED" "--" $mysession $virtual $start_time($mysession)
-  # if { $static::log_requests } {
-  #   TCP::collect
-  # }
+
 }
 
-# data sent to F5 VS
-# when CLIENT_DATA {
-#   if { $static::log_requests } {  
-#     call logger "CLIENT-TCP-DATA-RECEIVED" "--" $mysession $virtual $start_time($mysession)
-#     TCP::release
-#     TCP::collect
-#   }
-# }
 
 # LB decision made and pool member selected
 when SERVER_CONNECTED {
   call logger "LB-DECISION-MADE" "serverside-f5-ip=[IP::local_addr]:[TCP::local_port], pool-member=[LB::server addr]:[LB::server port]" $mysession $virtual $start_time($mysession)
-  # if { $static::log_requests } {
-  #   TCP::collect
-  # }
-}
 
-# # Data received from server-side pool member
-# when SERVER_DATA {
-#   if { $static::log_requests } {
-#     call logger "SERVER-TCP-DATA-RECEIVED" "pool-member=[LB::server addr]:[LB::server port]" $mysession $virtual $start_time($mysession)
-#     TCP::release
-#     TCP::collect
-#   }
-# }
+}
 
 # Client TCP connection closed
 when CLIENT_CLOSED {
